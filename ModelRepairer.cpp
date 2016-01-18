@@ -38,7 +38,9 @@ void ModelRepairer::repair()
     
     std::cout << "EULER CHARACTERISTIC: "
               << (int)(mesh.vertices.size() - mesh.edges.size() + mesh.faces.size())
-              << std::endl;
+              << "\nSINGULAR VERTICES: " << (int)singularVertices.size()
+              << "\nSINGULAR EDGES: " << (int)singularEdges.size()
+              << "\n" << std::endl;
 }
 
 void ModelRepairer::collectEdge(std::unordered_map<size_t, size_t>& edgeMap, const int& v1,
@@ -47,8 +49,7 @@ void ModelRepairer::collectEdge(std::unordered_map<size_t, size_t>& edgeMap, con
     // generate order independent key
     size_t key = (v1*v1 + v2*v2)*vertexCount + v1 + v2;
     if (edgeMap.find(key) == edgeMap.end()) {
-        int e = (int)mesh.edges.size();
-        mesh.edges.push_back(Edge(v1, v2, e));
+        mesh.edges.push_back(Edge(v1, v2, (int)mesh.edges.size()));
         edgeMap[key] = mesh.edges.size();
     }
     
@@ -109,7 +110,7 @@ void ModelRepairer::makeMeshElementsUnique() const
     }
 }
 
-void ModelRepairer::identifySingularEdges() const
+void ModelRepairer::identifySingularEdges()
 {
     for (EdgeIter e = mesh.edges.begin(); e != mesh.edges.end(); e++) {
         if (e->adjacentFaces.size() == 1) {
@@ -118,10 +119,9 @@ void ModelRepairer::identifySingularEdges() const
             mesh.vertices[e->v1].isBoundary = true;
         
         } else if (e->adjacentFaces.size() > 2) {
-            e->isSingular = true;
-            mesh.vertices[e->v0].isSingular = true;
-            mesh.vertices[e->v1].isSingular = true;
-            std::cout << "SINGULAR EDGE: " << e->index << std::endl;
+            singularEdges[e->index] = true;
+            singularVertices[e->v0] = true;
+            singularVertices[e->v1] = true;
         }
         
         // build face adjacency relation
@@ -137,8 +137,10 @@ void ModelRepairer::identifySingularEdges() const
 void ModelRepairer::identifySingularVertices()
 {
     for (VertexIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
+        
         if (v->adjacentFaces.size() > 0) {
-            if (!v->isSingular) {
+            if (singularVertices.find(v->index) == singularVertices.end()) {
+                
                 // traverse adjacent faces on vertex
                 int valence = 0;
                 FaceIter f = v->adjacentFaces[0];
@@ -166,27 +168,20 @@ void ModelRepairer::identifySingularVertices()
                 }
 
                 if (valence != (int)v->adjacentFaces.size()) {
-                    v->isSingular = true;
-                    singularVertices.push_back(v);
+                    singularVertices[v->index] = true;
                 }
-                
-            } else {
-                singularVertices.push_back(v);
             }
             
         } else {
             v->isIsolated = true;
-            std::cout << "ISOLATED VERTEX: " << v->index << std::endl;
         }
     }
 }
 
 void ModelRepairer::cut() const
 {
-    for (size_t i = 0; i < singularVertices.size(); i++) {
-        VertexIter v = singularVertices[i];
-        std::cout << "SINGULAR VERTEX: " << v->index << std::endl;
-        
+    for (auto kv : singularVertices) {
+        VertexIter v = mesh.vertices.begin() + kv.first;
         // TODO
     }
 }

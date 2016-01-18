@@ -61,8 +61,7 @@ bool MeshIO::read(std::ifstream& in, Mesh& mesh)
             double x, y, z;
             ss >> x >> y >> z;
             
-            int v = (int)mesh.vertices.size();
-            mesh.vertices.push_back(Vertex(Eigen::Vector3d(x, y, z), v));
+            mesh.vertices.push_back(Vertex(Eigen::Vector3d(x, y, z), (int)mesh.vertices.size()));
             
         } else if (token == "vt") {
             double u, v;

@@ -20,7 +20,7 @@ private:
                      const int& v2, const size_t& vertexCount, FaceIter f) const;
 
     // identifies singular edges
-    void identifySingularEdges() const;
+    void identifySingularEdges();
     
     // identifies singular vertices
     void identifySingularVertices();
@@ -39,7 +39,8 @@ private:
     
     // member variable
     Mesh& mesh;
-    std::vector<VertexIter> singularVertices;
+    std::unordered_map<int, bool> singularEdges;
+    std::unordered_map<int, bool> singularVertices;
 };
 
 #endif 

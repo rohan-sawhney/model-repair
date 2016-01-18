@@ -42,11 +42,9 @@ void init()
 void draw()
 {
     glPointSize(4.0);
+    glColor4f(0.0, 0.0, 0.6, 0.5);
     glBegin(GL_POINTS);
     for (VertexIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v ++) {
-        if (v->isSingular) glColor4f(0.0, 0.6, 0.0, 0.5);
-        else glColor4f(0.0, 0.0, 0.6, 0.5);
-        
         glVertex3d(v->position.x(), v->position.y(), v->position.z());
     }
     glEnd();
@@ -152,9 +150,9 @@ void special(int i, int x0, int y0)
 
 int main(int argc, char** argv) {
     
+    printInstructions();
     success = mesh.read(paths[0]);
     
-    printInstructions();
     glutInitWindowSize(gridX, gridY);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
     glutInit(&argc, argv);

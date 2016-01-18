@@ -17,9 +17,6 @@ public:
     // adjacent faces
     std::vector<FaceIter> adjacentFaces;
     
-    // flag for singular edge
-    bool isSingular;
-    
     // flag for boundary edge
     bool isBoundary;
 };

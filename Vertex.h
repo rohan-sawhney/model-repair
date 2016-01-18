@@ -17,9 +17,6 @@ public:
     // index
     int index;
     
-    // flag for singular vertex
-    bool isSingular;
-    
     // flag for boundary vertex
     bool isBoundary;
     
