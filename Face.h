@@ -8,9 +8,6 @@ public:
     // constructor
     Face(const int& index0);
     
-    // checks if face contains vertex
-    bool containsVertex(const int& v);
-    
     // vertex indices
     Eigen::Vector3i vIndices;
     
@@ -20,8 +17,8 @@ public:
     // normal indices
     Eigen::Vector3i nIndices;
     
-    // adjacent faces
-    std::vector<FaceIter> adjacentFaces;
+    // incident edges
+    std::vector<EdgeIter> incidentEdges;
     
     // index
     int index;

@@ -53,7 +53,8 @@ void ModelRepairer::collectEdge(std::unordered_map<size_t, size_t>& edgeMap, con
         edgeMap[key] = mesh.edges.size();
     }
     
-    mesh.edges[edgeMap[key]-1].adjacentFaces.push_back(f);
+    int e = (int)edgeMap[key]-1;
+    mesh.edges[e].adjacentFaces.push_back(f);
 }
 
 void ModelRepairer::makeMeshElementsUnique() const
@@ -124,12 +125,9 @@ void ModelRepairer::identifySingularEdges()
             singularVertices[e->v1] = true;
         }
         
-        // build face adjacency relation
-        for (size_t i = 0; i < e->adjacentFaces.size()-1; i++) {
-            for (size_t j = i+1; j < e->adjacentFaces.size(); j++) {
-                e->adjacentFaces[i]->adjacentFaces.push_back(e->adjacentFaces[j]);
-                e->adjacentFaces[j]->adjacentFaces.push_back(e->adjacentFaces[i]);
-            }
+        // build edge face adjacency relation
+        for (size_t i = 0; i < e->adjacentFaces.size(); i++) {
+            e->adjacentFaces[i]->incidentEdges.push_back(e);
         }
     }
 }
@@ -156,17 +154,22 @@ void ModelRepairer::identifySingularVertices()
                     stack.pop();
                     valence++;
                     
-                    for (size_t i = 0; i < f->adjacentFaces.size(); i++) {
-                        FaceIter af = f->adjacentFaces[i];
-                        
-                        if (af->containsVertex(v->index) &&
-                            visitedFaceMap.find(af->index) == visitedFaceMap.end()) {
-                            stack.push(af);
-                            visitedFaceMap[af->index] = true;
+                    for (int i = 0; i < 3; i++) {
+                        EdgeIter e = f->incidentEdges[i];
+                        if (!e->isBoundary && e->containsVertex(v->index)) {
+
+                            FaceIter af = e->adjacentFaces[0];
+                            if (f == af) af = e->adjacentFaces[1];
+
+                            // push faces not yet visited
+                            if (visitedFaceMap.find(af->index) == visitedFaceMap.end()) {
+                                stack.push(af);
+                                visitedFaceMap[af->index] = true;
+                            }
                         }
                     }
                 }
-
+        
                 if (valence != (int)v->adjacentFaces.size()) {
                     singularVertices[v->index] = true;
                 }

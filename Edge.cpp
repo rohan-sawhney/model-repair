@@ -8,3 +8,8 @@ isBoundary(false)
 {
     if (v1 < v0) std::swap(v0, v1);
 }
+
+bool Edge::containsVertex(const int& v)
+{
+    return v == v0 || v == v1;
+}
