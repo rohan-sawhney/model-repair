@@ -14,11 +14,11 @@ public:
     // vertex indices (v1 > v0)
     int v0, v1;
     
+    // adjacent faces
+    std::vector<int> adjacentFaces;
+    
     // index
     int index;
-    
-    // adjacent faces
-    std::vector<FaceIter> adjacentFaces;
     
     // flag for boundary edge
     bool isBoundary;

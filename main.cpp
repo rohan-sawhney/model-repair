@@ -41,11 +41,17 @@ void init()
 
 void draw()
 {
-    glPointSize(4.0);
-    glColor4f(0.0, 0.0, 0.6, 0.5);
-    glBegin(GL_POINTS);
-    for (VertexIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v ++) {
-        glVertex3d(v->position.x(), v->position.y(), v->position.z());
+    glLineWidth(2.0);
+    glBegin(GL_LINES);
+    for (EdgeIter e = mesh.edges.begin(); e != mesh.edges.end(); e++) {
+        const Eigen::Vector3d &a(mesh.vertices[e->v0].position);
+        const Eigen::Vector3d &b(mesh.vertices[e->v1].position);
+        
+        if (e->isBoundary) glColor4f(0.0, 0.6, 0.0, 0.5);
+        else glColor4f(0.0, 0.0, 0.6, 0.5);
+        
+        glVertex3d(a.x(), a.y(), a.z());
+        glVertex3d(b.x(), b.y(), b.z());
     }
     glEnd();
 }

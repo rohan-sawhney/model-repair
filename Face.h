@@ -8,6 +8,14 @@ public:
     // constructor
     Face(const int& index0);
     
+    // constructor
+    Face(const Eigen::Vector3i& vIndices0, const Eigen::Vector3i& uvIndices0,
+         const Eigen::Vector3i& nIndices0, const Eigen::Vector3d& normal0,
+         const int& index0);
+    
+    // updates vertex index
+    void updateVertexIndex(const int& vOld, const int& vNew);
+    
     // vertex indices
     Eigen::Vector3i vIndices;
     
@@ -17,8 +25,11 @@ public:
     // normal indices
     Eigen::Vector3i nIndices;
     
+    // normal
+    Eigen::Vector3d normal;
+    
     // incident edges
-    std::vector<EdgeIter> incidentEdges;
+    std::vector<int> incidentEdges;
     
     // index
     int index;

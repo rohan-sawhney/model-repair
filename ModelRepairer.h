@@ -16,8 +16,8 @@ private:
     void makeMeshElementsUnique() const;
     
     // collects mesh edges
-    void collectEdge(std::unordered_map<size_t, size_t>& edgeMap, const int& v1,
-                     const int& v2, const size_t& vertexCount, FaceIter f) const;
+    int collectEdge(std::unordered_map<size_t, size_t>& edgeMap, const int& v1,
+                    const int& v2, const size_t& vertexCount) const;
 
     // identifies singular edges
     void identifySingularEdges();

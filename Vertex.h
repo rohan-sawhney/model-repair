@@ -12,7 +12,7 @@ public:
     Eigen::Vector3d position;
     
     // adjacent faces
-    std::vector<FaceIter> adjacentFaces;
+    std::vector<int> adjacentFaces;
     
     // index
     int index;
