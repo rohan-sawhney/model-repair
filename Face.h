@@ -16,6 +16,9 @@ public:
     // updates vertex index
     void updateVertexIndex(const int& vOld, const int& vNew);
     
+    // flip orientation
+    void flipOrientation(const Face& f);
+    
     // vertex indices
     Eigen::Vector3i vIndices;
     

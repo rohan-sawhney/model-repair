@@ -6,7 +6,9 @@ v1(i1),
 index(index0),
 isBoundary(false)
 {
-    if (v1 < v0) std::swap(v0, v1);
+    if (v1 < v0) {
+        std::swap(v0, v1);
+    }
 }
 
 bool Edge::containsVertex(const int& v)

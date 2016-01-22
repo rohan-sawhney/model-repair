@@ -34,6 +34,7 @@ void ModelRepairer::repair()
     orient();
     snap();
     // TODO: remove isolated vertices & faces
+    // TODO: correct closed object orientation
     normalize();
     
     std::cout << "EULER CHARACTERISTIC: "
@@ -58,47 +59,6 @@ int ModelRepairer::collectEdge(std::unordered_map<size_t, size_t>& edgeMap, cons
     }
     
     return (int)edgeMap[key]-1;
-}
-
-void ModelRepairer::addFace(std::unordered_map<size_t, size_t>& edgeMap,
-                            std::unordered_map<size_t, bool>& faceMap,
-                            const size_t& v, FaceIter f) const
-{
-    // add face to mesh list if it is not degenerate and not a duplicate
-    const Eigen::Vector3d& v1(mesh.vertices[f->vIndices[0]].position);
-    const Eigen::Vector3d& v2(mesh.vertices[f->vIndices[1]].position);
-    const Eigen::Vector3d& v3(mesh.vertices[f->vIndices[2]].position);
-    Eigen::Vector3d normal = (v2-v1).cross((v3-v1));
-    
-    if (normal.norm() != 0.0) {
-        size_t fHash = hash((v1 + v2 + v3) / 3.0); // hash of face centroid
-        
-        if (faceMap.find(fHash) == faceMap.end()) {
-            int fIdx = (int)mesh.faces.size();
-            mesh.faces.push_back(Face(f->vIndices, f->uvIndices, f->nIndices, normal, fIdx));
-            Face *cf = &mesh.faces[fIdx];
-            
-            // build vertex face adjacency
-            mesh.vertices[cf->vIndices[0]].adjacentFaces.push_back(fIdx);
-            mesh.vertices[cf->vIndices[1]].adjacentFaces.push_back(fIdx);
-            mesh.vertices[cf->vIndices[2]].adjacentFaces.push_back(fIdx);
-            
-            // build edge face adjaceny
-            int e1 = collectEdge(edgeMap, cf->vIndices[0], cf->vIndices[1], v);
-            cf->incidentEdges[0] = e1;
-            mesh.edges[e1].adjacentFaces.push_back(fIdx);
-            
-            int e2 = collectEdge(edgeMap, cf->vIndices[0], cf->vIndices[2], v);
-            cf->incidentEdges[1] = e2;
-            mesh.edges[e2].adjacentFaces.push_back(fIdx);
-            
-            int e3 = collectEdge(edgeMap, cf->vIndices[1], cf->vIndices[2], v);
-            cf->incidentEdges[2] = e3;
-            mesh.edges[e3].adjacentFaces.push_back(fIdx);
-            
-            faceMap[fHash] = true;
-        }
-    }
 }
 
 void ModelRepairer::makeMeshElementsUnique() const
@@ -151,7 +111,41 @@ void ModelRepairer::makeMeshElementsUnique() const
             }
         }
         
-        addFace(edgeMap, faceMap, v, f);
+        // add face to mesh list if it is not degenerate and not a duplicate
+        const Eigen::Vector3d& v1(mesh.vertices[f->vIndices[0]].position);
+        const Eigen::Vector3d& v2(mesh.vertices[f->vIndices[1]].position);
+        const Eigen::Vector3d& v3(mesh.vertices[f->vIndices[2]].position);
+        Eigen::Vector3d normal = (v2-v1).cross((v3-v1));
+        
+        if (normal.norm() != 0.0) {
+            size_t fHash = hash((v1 + v2 + v3) / 3.0); // hash of face centroid
+            
+            if (faceMap.find(fHash) == faceMap.end()) {
+                int fIdx = (int)mesh.faces.size();
+                mesh.faces.push_back(Face(f->vIndices, f->uvIndices, f->nIndices, normal, fIdx));
+                Face *cf = &mesh.faces[fIdx];
+                
+                // build vertex face adjacency
+                mesh.vertices[cf->vIndices[0]].adjacentFaces.push_back(fIdx);
+                mesh.vertices[cf->vIndices[1]].adjacentFaces.push_back(fIdx);
+                mesh.vertices[cf->vIndices[2]].adjacentFaces.push_back(fIdx);
+                
+                // build edge face adjaceny
+                int e1 = collectEdge(edgeMap, cf->vIndices[0], cf->vIndices[1], v);
+                cf->incidentEdges[0] = e1;
+                mesh.edges[e1].adjacentFaces.push_back(fIdx);
+                
+                int e2 = collectEdge(edgeMap, cf->vIndices[0], cf->vIndices[2], v);
+                cf->incidentEdges[1] = e2;
+                mesh.edges[e2].adjacentFaces.push_back(fIdx);
+                
+                int e3 = collectEdge(edgeMap, cf->vIndices[1], cf->vIndices[2], v);
+                cf->incidentEdges[2] = e3;
+                mesh.edges[e3].adjacentFaces.push_back(fIdx);
+                
+                faceMap[fHash] = true;
+            }
+        }
     }
 }
 
@@ -279,12 +273,56 @@ void ModelRepairer::cut() const
         }
     }
     
-    // NOTE: At this point, vertex, edge and face adjaceny lists are invalid
+    // NOTE: mesh edges and adjaceny relations are invalid at this point
 }
 
 void ModelRepairer::orient() const
 {
-    // TODO: build spanning tree & cut
+    // build spanning tree
+    int facesVisited = 0;
+    const int faceCount = (int)mesh.faces.size();
+    std::unordered_map<int, bool> visitedFaceMap;
+    
+    while (facesVisited != faceCount) {
+        
+        // find a face that has not been visited
+        std::stack<Face *> stack;
+        for (int i = 0; i < faceCount; i++) {
+            
+            Face *f = &mesh.faces[i];
+            if (visitedFaceMap.find(f->index) == visitedFaceMap.end()) {
+                stack.push(f);
+                visitedFaceMap[f->index] = true;
+                break;
+            }
+        }
+        
+        // flip orientation of neighboring faces if inconsistent
+        while (!stack.empty()) {
+            Face *f = stack.top();
+            stack.pop();
+            facesVisited++;
+            
+            for (int i = 0; i < 3; i++) {
+                Edge *e = &mesh.edges[f->incidentEdges[i]];
+                
+                if (singularEdges.find(e->index) == singularEdges.end() && !e->isBoundary) {
+                    Face *af = &mesh.faces[e->adjacentFaces[0]];
+                    if (f == af) af = &mesh.faces[e->adjacentFaces[1]];
+                    
+                    // push faces not yet visited
+                    if (visitedFaceMap.find(af->index) == visitedFaceMap.end()) {
+                        af->flipOrientation(*f);
+                        
+                        stack.push(af);
+                        visitedFaceMap[af->index] = true;
+                    }
+                }
+            }
+        }
+    }
+    
+    // NOTE: mesh normals are invalid at this point
 }
 
 void ModelRepairer::snap() const

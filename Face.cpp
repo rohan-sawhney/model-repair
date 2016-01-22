@@ -29,3 +29,23 @@ void Face::updateVertexIndex(const int& vOld, const int& vNew)
         }
     }
 }
+
+void Face::flipOrientation(const Face& f)
+{
+    for (int i = 0; i < 3; i++) {
+        int a = (int)f.vIndices[i];
+        int b = (int)f.vIndices[(i+1)%3];
+        
+        for (int j = 0; j < 3; j++) {
+            int nextJ = (j+1)%3;
+            int c = (int)vIndices[j];
+            int d = (int)vIndices[nextJ];
+            
+            if (a == c && b == d) {
+                std::swap(vIndices[j], vIndices[nextJ]);
+                std::swap(uvIndices[j], uvIndices[nextJ]);
+                break;
+            }
+        }
+    }
+}

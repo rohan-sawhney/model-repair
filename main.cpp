@@ -105,7 +105,8 @@ void keyboard(unsigned char key, int x0, int y0)
             y -= 0.03;
             break;
         case 'l':
-            mesh.write(paths[i].insert(paths[i].find_last_of("."), "2"));
+            std::string wPath = paths[i];
+            mesh.write(wPath.insert(paths[i].find_last_of("."), "2"));
             break;
     }
     
