@@ -18,6 +18,11 @@ private:
     // collects mesh edges
     int collectEdge(std::unordered_map<size_t, size_t>& edgeMap, const int& v1,
                     const int& v2, const size_t& vertexCount) const;
+    
+    // add face to mesh
+    void addFace(std::unordered_map<size_t, size_t>& edgeMap,
+                 std::unordered_map<size_t, bool>& faceMap,
+                 const size_t& v, FaceIter f) const;
 
     // identifies singular edges
     void identifySingularEdges();

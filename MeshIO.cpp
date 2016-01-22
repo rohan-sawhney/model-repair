@@ -93,3 +93,36 @@ bool MeshIO::read(std::ifstream& in, Mesh& mesh)
     
     return true;
 }
+
+bool MeshIO::write(std::ofstream& out, const Mesh& mesh)
+{
+    for (VertexCIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
+        out << "v " << v->position.x() << " "
+                    << v->position.y() << " "
+                    << v->position.z() << std::endl;
+    }
+    
+    // write uvs
+    for (VectorCIter uv = mesh.uvs.begin(); uv != mesh.uvs.end(); uv++) {
+        out << "vt " << uv->x() << " "
+                     << uv->y() << std::endl;
+    }
+    
+    // write normals
+    for (VectorCIter n = mesh.normals.begin(); n != mesh.normals.end(); n++) {
+        out << "vn " << n->x() << " "
+                     << n->y() << " "
+                     << n->z() << std::endl;
+    }
+    
+    // write faces
+    for (FaceCIter f = mesh.faces.begin(); f != mesh.faces.end(); f++) {
+        out << "f ";
+        for (int i = 0; i < 3; i++) {
+            out << f->vIndices[i]+1 << "/" << f->uvIndices[i]+1 << "/" << f->nIndices[i]+1 << " ";
+        }
+        out << std::endl;
+    }
+     
+    return true;
+}

@@ -12,9 +12,9 @@ inline void hashCombine(std::size_t& seed, const T& v)
 size_t hash(const Eigen::Vector3d& v)
 {
     size_t hash = 0;
-    hashCombine(hash, v.x());
-    hashCombine(hash, v.y());
-    hashCombine(hash, v.z());
+    hashCombine(hash, v[0]);
+    hashCombine(hash, v[1]);
+    hashCombine(hash, v[2]);
     
     return hash;
 }
@@ -33,7 +33,7 @@ void ModelRepairer::repair()
     cut();
     orient();
     snap();
-    // TODO: remove isolated vertices and isolated and duplicated faces
+    // TODO: remove isolated vertices & faces
     normalize();
     
     std::cout << "EULER CHARACTERISTIC: "
@@ -60,62 +60,20 @@ int ModelRepairer::collectEdge(std::unordered_map<size_t, size_t>& edgeMap, cons
     return (int)edgeMap[key]-1;
 }
 
-void ModelRepairer::makeMeshElementsUnique() const
+void ModelRepairer::addFace(std::unordered_map<size_t, size_t>& edgeMap,
+                            std::unordered_map<size_t, bool>& faceMap,
+                            const size_t& v, FaceIter f) const
 {
-    std::vector<Vertex> vertices = mesh.vertices; mesh.vertices.clear();
-    std::vector<Eigen::Vector3d> uvs = mesh.uvs; mesh.uvs.clear();
-    std::vector<Eigen::Vector3d> normals = mesh.normals; mesh.normals.clear();
-    std::vector<Face> faces = mesh.faces; mesh.faces.clear();
+    // add face to mesh list if it is not degenerate and not a duplicate
+    const Eigen::Vector3d& v1(mesh.vertices[f->vIndices[0]].position);
+    const Eigen::Vector3d& v2(mesh.vertices[f->vIndices[1]].position);
+    const Eigen::Vector3d& v3(mesh.vertices[f->vIndices[2]].position);
+    Eigen::Vector3d normal = (v2-v1).cross((v3-v1));
     
-    std::unordered_map<size_t, size_t> vertexMap;
-    std::unordered_map<size_t, size_t> uvMap;
-    std::unordered_map<size_t, size_t> normalMap;
-    
-    size_t vCount = 2 * vertices.size();
-    std::unordered_map<size_t, size_t> edgeMap;
-
-    for (FaceIter f = faces.begin(); f != faces.end(); f++) {
+    if (normal.norm() != 0.0) {
+        size_t fHash = hash((v1 + v2 + v3) / 3.0); // hash of face centroid
         
-        // make v, uv, n unique and reassign face indices
-        for (int i = 0; i < 3; i++) {
-            
-            // insert unique vertex into map and return index
-            size_t v = hash(vertices[f->vIndices[i]].position);
-            if (vertexMap.find(v) == vertexMap.end()) {
-                mesh.vertices.push_back(vertices[f->vIndices[i]]);
-                vertexMap[v] = mesh.vertices.size();
-                mesh.vertices[(int)vertexMap[v]-1].index = (int)vertexMap[v]-1;
-            }
-            f->vIndices[i] = (int)vertexMap[v]-1;
-            
-            if (uvs.size() > 0) {
-                // insert unique uv into map and return index
-                size_t uv = hash(uvs[f->uvIndices[i]]);
-                if (uvMap.find(uv) == uvMap.end()) {
-                    mesh.uvs.push_back(uvs[f->uvIndices[i]]);
-                    uvMap[uv] = mesh.uvs.size();
-                }
-                f->uvIndices[i] = (int)uvMap[uv]-1;
-            }
-            
-            if (normals.size() > 0) {
-                // insert unique normal into map and return index
-                size_t n = hash(normals[f->nIndices[i]]);
-                if (normalMap.find(n) == normalMap.end()) {
-                    mesh.normals.push_back(normals[f->nIndices[i]]);
-                    normalMap[n] = mesh.normals.size();
-                }
-                f->nIndices[i] = (int)normalMap[n]-1;
-            }
-        }
-        
-        // add non-degenerate faces to mesh face list
-        const Eigen::Vector3d& v1(mesh.vertices[f->vIndices[0]].position);
-        const Eigen::Vector3d& v2(mesh.vertices[f->vIndices[1]].position);
-        const Eigen::Vector3d& v3(mesh.vertices[f->vIndices[2]].position);
-        Eigen::Vector3d normal = (v2-v1).cross((v3-v1));
-        
-        if (normal.norm() != 0.0) {
+        if (faceMap.find(fHash) == faceMap.end()) {
             int fIdx = (int)mesh.faces.size();
             mesh.faces.push_back(Face(f->vIndices, f->uvIndices, f->nIndices, normal, fIdx));
             Face *cf = &mesh.faces[fIdx];
@@ -126,18 +84,74 @@ void ModelRepairer::makeMeshElementsUnique() const
             mesh.vertices[cf->vIndices[2]].adjacentFaces.push_back(fIdx);
             
             // build edge face adjaceny
-            int e1 = collectEdge(edgeMap, cf->vIndices[0], cf->vIndices[1], vCount);
-            cf->incidentEdges.push_back(e1);
+            int e1 = collectEdge(edgeMap, cf->vIndices[0], cf->vIndices[1], v);
+            cf->incidentEdges[0] = e1;
             mesh.edges[e1].adjacentFaces.push_back(fIdx);
             
-            int e2 = collectEdge(edgeMap, cf->vIndices[0], cf->vIndices[2], vCount);
-            cf->incidentEdges.push_back(e2);
+            int e2 = collectEdge(edgeMap, cf->vIndices[0], cf->vIndices[2], v);
+            cf->incidentEdges[1] = e2;
             mesh.edges[e2].adjacentFaces.push_back(fIdx);
             
-            int e3 = collectEdge(edgeMap, cf->vIndices[1], cf->vIndices[2], vCount);
-            cf->incidentEdges.push_back(e3);
+            int e3 = collectEdge(edgeMap, cf->vIndices[1], cf->vIndices[2], v);
+            cf->incidentEdges[2] = e3;
             mesh.edges[e3].adjacentFaces.push_back(fIdx);
+            
+            faceMap[fHash] = true;
         }
+    }
+}
+
+void ModelRepairer::makeMeshElementsUnique() const
+{
+    std::vector<Vertex> vertices = mesh.vertices; mesh.vertices.clear();
+    std::vector<Eigen::Vector3d> uvs = mesh.uvs; mesh.uvs.clear();
+    std::vector<Eigen::Vector3d> normals = mesh.normals; mesh.normals.clear();
+    std::vector<Face> faces = mesh.faces; mesh.faces.clear();
+    
+    std::unordered_map<size_t, size_t> vertexMap;
+    std::unordered_map<size_t, size_t> uvMap;
+    std::unordered_map<size_t, size_t> normalMap;
+    std::unordered_map<size_t, bool> faceMap;
+    
+    size_t v = 2 * vertices.size();
+    std::unordered_map<size_t, size_t> edgeMap;
+
+    for (FaceIter f = faces.begin(); f != faces.end(); f++) {
+        
+        // make v, uv, n unique and reassign face indices
+        for (int i = 0; i < 3; i++) {
+            
+            // insert unique vertex into map and return index
+            size_t vHash = hash(vertices[f->vIndices[i]].position);
+            if (vertexMap.find(vHash) == vertexMap.end()) {
+                mesh.vertices.push_back(vertices[f->vIndices[i]]);
+                vertexMap[vHash] = mesh.vertices.size();
+                mesh.vertices[(int)vertexMap[vHash]-1].index = (int)vertexMap[vHash]-1;
+            }
+            f->vIndices[i] = (int)vertexMap[vHash]-1;
+            
+            if (uvs.size() > 0) {
+                // insert unique uv into map and return index
+                size_t uvHash = hash(uvs[f->uvIndices[i]]);
+                if (uvMap.find(uvHash) == uvMap.end()) {
+                    mesh.uvs.push_back(uvs[f->uvIndices[i]]);
+                    uvMap[uvHash] = mesh.uvs.size();
+                }
+                f->uvIndices[i] = (int)uvMap[uvHash]-1;
+            }
+            
+            if (normals.size() > 0) {
+                // insert unique normal into map and return index
+                size_t nHash = hash(normals[f->nIndices[i]]);
+                if (normalMap.find(nHash) == normalMap.end()) {
+                    mesh.normals.push_back(normals[f->nIndices[i]]);
+                    normalMap[nHash] = mesh.normals.size();
+                }
+                f->nIndices[i] = (int)normalMap[nHash]-1;
+            }
+        }
+        
+        addFace(edgeMap, faceMap, v, f);
     }
 }
 
@@ -270,7 +284,7 @@ void ModelRepairer::cut() const
 
 void ModelRepairer::orient() const
 {
-    // TODO
+    // TODO: build spanning tree & cut
 }
 
 void ModelRepairer::snap() const

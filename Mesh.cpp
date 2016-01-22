@@ -30,3 +30,18 @@ bool Mesh::read(const std::string& fileName)
     return readSuccessful;
 }
 
+bool Mesh::write(const std::string& fileName) const
+{
+    std::ofstream out(fileName.c_str());
+    
+    if (!out.is_open()) {
+        std::cerr << "Error: Could not open file for writing" << std::endl;
+        return false;
+    }
+    
+    bool writeSuccessful = false;
+    if ((writeSuccessful = MeshIO::write(out, *this))) {};
+    
+    return writeSuccessful;
+}
+

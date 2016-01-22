@@ -29,7 +29,7 @@ public:
     Eigen::Vector3d normal;
     
     // incident edges
-    std::vector<int> incidentEdges;
+    Eigen::Vector3i incidentEdges;
     
     // index
     int index;
