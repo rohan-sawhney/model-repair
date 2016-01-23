@@ -28,11 +28,11 @@ private:
     // cutting operation
     void cut() const;
     
-    // orient consistently
-    void orient() const;
+    // orient component faces consistently
+    void orient();
     
-    // snapping operation
-    void snap() const;
+    // stitching operation
+    void stitch() const;
     
     // centers mesh about origin and rescales to unit radius
     void normalize() const;
@@ -41,6 +41,7 @@ private:
     Mesh& mesh;
     std::unordered_map<int, bool> singularEdges;
     std::unordered_map<int, bool> singularVertices;
+    std::vector<std::vector<Face *>> components;
 };
 
 #endif 

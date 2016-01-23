@@ -18,7 +18,8 @@ double eyeX = 0.0, eyeY = 1.0, eyeZ = 2.5; // camera points initially along y-ax
 double upX = 0.0, upY = 1.0, upZ = 0.0; // camera points initially along y-axis
 double r = 2.5, theta = 0.0, phi = 0.0;
 
-std::vector<std::string> paths = {"/Users/rohansawhney/Desktop/developer/C++/model-repair/cow.obj",
+std::vector<std::string> paths = {"/Users/rohansawhney/Desktop/developer/C++/model-repair/cooper.obj",
+                                  "/Users/rohansawhney/Desktop/developer/C++/model-repair/cow.obj",
                                   "/Users/rohansawhney/Desktop/developer/C++/model-repair/teapot.obj"};
 Mesh mesh;
 bool success = true;

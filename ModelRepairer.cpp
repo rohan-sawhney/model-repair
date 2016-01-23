@@ -32,9 +32,11 @@ void ModelRepairer::repair()
     identifySingularVertices();
     cut();
     orient();
-    snap();
+    stitch();
     // TODO: remove isolated vertices & faces
+    // TODO: submesh
     // TODO: correct closed object orientation
+    // TODO: calculate normals
     normalize();
     
     std::cout << "EULER CHARACTERISTIC: "
@@ -217,11 +219,10 @@ void ModelRepairer::cut() const
     for (auto kv : singularVertices) {
         // assign components
         int components = 0;
-        int facesVisited = 0;
-        const int faceCount = (int)mesh.vertices[kv.first].adjacentFaces.size();
+        const size_t faceCount = mesh.vertices[kv.first].adjacentFaces.size();
         std::unordered_map<int, bool> visitedFaceMap;
 
-        while (facesVisited != faceCount) {
+        while (visitedFaceMap.size() != faceCount) {
             // find a face that has not been visited
             std::stack<Face *> stack;
             std::vector<Face *> componentFaces;
@@ -240,7 +241,6 @@ void ModelRepairer::cut() const
                 Face *f = stack.top();
                 stack.pop();
                 componentFaces.push_back(f);
-                facesVisited++;
                 
                 for (int i = 0; i < 3; i++) {
                     Edge *e = &mesh.edges[f->incidentEdges[i]];
@@ -276,14 +276,13 @@ void ModelRepairer::cut() const
     // NOTE: mesh edges and adjaceny relations are invalid at this point
 }
 
-void ModelRepairer::orient() const
+void ModelRepairer::orient()
 {
     // build spanning tree
-    int facesVisited = 0;
-    const int faceCount = (int)mesh.faces.size();
+    const size_t faceCount = mesh.faces.size();
     std::unordered_map<int, bool> visitedFaceMap;
     
-    while (facesVisited != faceCount) {
+    while (visitedFaceMap.size() != faceCount) {
         
         // find a face that has not been visited
         std::stack<Face *> stack;
@@ -293,6 +292,7 @@ void ModelRepairer::orient() const
             if (visitedFaceMap.find(f->index) == visitedFaceMap.end()) {
                 stack.push(f);
                 visitedFaceMap[f->index] = true;
+                components.push_back(std::vector<Face *>());
                 break;
             }
         }
@@ -301,7 +301,7 @@ void ModelRepairer::orient() const
         while (!stack.empty()) {
             Face *f = stack.top();
             stack.pop();
-            facesVisited++;
+            components[components.size()-1].push_back(f);
             
             for (int i = 0; i < 3; i++) {
                 Edge *e = &mesh.edges[f->incidentEdges[i]];
@@ -325,7 +325,7 @@ void ModelRepairer::orient() const
     // NOTE: mesh normals are invalid at this point
 }
 
-void ModelRepairer::snap() const
+void ModelRepairer::stitch() const
 {
     // TODO
 }
