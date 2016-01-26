@@ -1,8 +1,7 @@
 #include "Face.h"
 
 Face::Face(const int& index0):
-index(index0),
-isIsolated(false)
+index(index0)
 {
     
 }
@@ -14,8 +13,7 @@ vIndices(vIndices0),
 uvIndices(uvIndices0),
 nIndices(nIndices0),
 normal(normal0),
-index(index0),
-isIsolated(false)
+index(index0)
 {
     
 }
@@ -48,4 +46,18 @@ void Face::flipOrientation(const Face& f)
             }
         }
     }
+}
+
+int Face::edgeIndex(const int& e) const
+{
+    for (int i = 0; i < 3; i++) {
+        if (incidentEdges[i] == e) return i;
+    }
+    
+    return -1;
+}
+
+bool Face::containsVertex(const int& v) const
+{
+    return vIndices[0] == v || vIndices[1] == v || vIndices[2] == v;
 }

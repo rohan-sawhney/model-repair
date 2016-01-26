@@ -19,6 +19,12 @@ public:
     // flip orientation
     void flipOrientation(const Face& f);
     
+    // returns edge index
+    int edgeIndex(const int& e) const;
+    
+    // checks if face contains vertex
+    bool containsVertex(const int& v) const;
+    
     // vertex indices
     Eigen::Vector3i vIndices;
     
@@ -36,9 +42,6 @@ public:
     
     // index
     int index;
-    
-    // flag for isolated face
-    bool isIsolated;
 };
 
 #endif

@@ -20,7 +20,8 @@ size_t hash(const Eigen::Vector3d& v)
 }
 
 ModelRepairer::ModelRepairer(Mesh& mesh0):
-mesh(mesh0)
+mesh(mesh0),
+hashFactor(0)
 {
     
 }
@@ -34,7 +35,6 @@ void ModelRepairer::repair()
     orient();
     stitch();
     // TODO: remove isolated vertices & faces
-    // TODO: submesh
     // TODO: correct closed object orientation
     // TODO: calculate normals
     normalize();
@@ -43,27 +43,30 @@ void ModelRepairer::repair()
               << (int)(mesh.vertices.size() - mesh.edges.size() + mesh.faces.size())
               << "\nSINGULAR VERTICES: " << (int)singularVertices.size()
               << "\nSINGULAR EDGES: " << (int)singularEdges.size()
+              << "\nBOUNDARY EDGES: " << (int)boundaryEdges.size()
               << "\nVERTICES: " << (int)mesh.vertices.size()
               << "\nEDGE: " << (int)mesh.edges.size()
               << "\nFACES: " << (int)mesh.faces.size()
               << "\n" << std::endl;
 }
 
-int ModelRepairer::collectEdge(std::unordered_map<size_t, size_t>& edgeMap, const int& v1,
-                               const int& v2, const size_t& vertexCount) const
+bool ModelRepairer::collectEdge(int& e, const int& v1, const int& v2)
 {
     // generate order independent key
-    size_t key = (v1*v1 + v2*v2)*vertexCount + v1 + v2;
+    size_t key = (v1*v1 + v2*v2)*hashFactor + v1 + v2;
     
+    bool newEdge = false;
     if (edgeMap.find(key) == edgeMap.end()) {
         mesh.edges.push_back(Edge(v1, v2, (int)mesh.edges.size()));
         edgeMap[key] = mesh.edges.size();
+        newEdge = true;
     }
-    
-    return (int)edgeMap[key]-1;
+
+    e = (int)edgeMap[key]-1;
+    return newEdge;
 }
 
-void ModelRepairer::makeMeshElementsUnique() const
+void ModelRepairer::makeMeshElementsUnique()
 {
     std::vector<Vertex> vertices = mesh.vertices; mesh.vertices.clear();
     std::vector<Eigen::Vector3d> uvs = mesh.uvs; mesh.uvs.clear();
@@ -75,9 +78,8 @@ void ModelRepairer::makeMeshElementsUnique() const
     std::unordered_map<size_t, size_t> normalMap;
     std::unordered_map<size_t, bool> faceMap;
     
-    size_t v = 2 * vertices.size();
-    std::unordered_map<size_t, size_t> edgeMap;
-
+    hashFactor = 2 * vertices.size();
+    
     for (FaceIter f = faces.begin(); f != faces.end(); f++) {
         
         // make v, uv, n unique and reassign face indices
@@ -133,17 +135,14 @@ void ModelRepairer::makeMeshElementsUnique() const
                 mesh.vertices[cf->vIndices[2]].adjacentFaces.push_back(fIdx);
                 
                 // build edge face adjaceny
-                int e1 = collectEdge(edgeMap, cf->vIndices[0], cf->vIndices[1], v);
-                cf->incidentEdges[0] = e1;
-                mesh.edges[e1].adjacentFaces.push_back(fIdx);
+                collectEdge(cf->incidentEdges[0], cf->vIndices[0], cf->vIndices[1]);
+                mesh.edges[cf->incidentEdges[0]].adjacentFaces.push_back(fIdx);
                 
-                int e2 = collectEdge(edgeMap, cf->vIndices[0], cf->vIndices[2], v);
-                cf->incidentEdges[1] = e2;
-                mesh.edges[e2].adjacentFaces.push_back(fIdx);
+                collectEdge(cf->incidentEdges[1], cf->vIndices[0], cf->vIndices[2]);
+                mesh.edges[cf->incidentEdges[1]].adjacentFaces.push_back(fIdx);
                 
-                int e3 = collectEdge(edgeMap, cf->vIndices[1], cf->vIndices[2], v);
-                cf->incidentEdges[2] = e3;
-                mesh.edges[e3].adjacentFaces.push_back(fIdx);
+                collectEdge(cf->incidentEdges[2], cf->vIndices[1], cf->vIndices[2]);
+                mesh.edges[cf->incidentEdges[2]].adjacentFaces.push_back(fIdx);
                 
                 faceMap[fHash] = true;
             }
@@ -155,9 +154,7 @@ void ModelRepairer::identifySingularEdges()
 {
     for (EdgeIter e = mesh.edges.begin(); e != mesh.edges.end(); e++) {
         if (e->adjacentFaces.size() == 1) {
-            e->isBoundary = true;
-            mesh.vertices[e->v0].isBoundary = true;
-            mesh.vertices[e->v1].isBoundary = true;
+            boundaryEdges[e->index] = true;
         
         } else if (e->adjacentFaces.size() > 2) {
             singularEdges[e->index] = true;
@@ -170,9 +167,8 @@ void ModelRepairer::identifySingularEdges()
 void ModelRepairer::identifySingularVertices()
 {
     for (VertexIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
-        
         if (v->adjacentFaces.size() == 0) {
-            v->isIsolated = true;
+            isolatedVertices[v->index] = true;
             
         } else if (singularVertices.find(v->index) == singularVertices.end()) {
             // traverse adjacent faces on vertex
@@ -194,10 +190,12 @@ void ModelRepairer::identifySingularVertices()
                 for (int i = 0; i < 3; i++) {
                     Edge *e = &mesh.edges[f->incidentEdges[i]];
                     
-                    if (!e->isBoundary && e->containsVertex(v->index)) {
+                    if (boundaryEdges.find(e->index) == boundaryEdges.end() &&
+                        e->containsVertex(v->index)) {
+                        
                         Face *af = &mesh.faces[e->adjacentFaces[0]];
                         if (f == af) af = &mesh.faces[e->adjacentFaces[1]];
-
+                        
                         // push faces not yet visited
                         if (visitedFaceMap.find(af->index) == visitedFaceMap.end()) {
                             stack.push(af);
@@ -214,66 +212,118 @@ void ModelRepairer::identifySingularVertices()
     }
 }
 
-void ModelRepairer::cut() const
-{
-    for (auto kv : singularVertices) {
-        // assign components
-        int components = 0;
-        const size_t faceCount = mesh.vertices[kv.first].adjacentFaces.size();
-        std::unordered_map<int, bool> visitedFaceMap;
+void ModelRepairer::updateAdjacencyLists()
+{    
+    for (auto kv : singularEdges) {
+        if (kv.second) {
+            Edge& e(mesh.edges[kv.first]);
+            
+            // mark as boundary edge
+            boundaryEdges[e.index] = true;
+            
+            // create a local copy of adjacent faces
+            std::vector<int> adjacentFaces = e.adjacentFaces;
+            
+            // update edge face adjacency relations
+            for (size_t i = 0; i < adjacentFaces.size(); i++) {
+                Face& f(mesh.faces[adjacentFaces[i]]);
+                
+                // check if edge has been multiplied
+                int eIdx = f.edgeIndex(e.index);
+                if (eIdx != -1) {
 
-        while (visitedFaceMap.size() != faceCount) {
-            // find a face that has not been visited
-            std::stack<Face *> stack;
-            std::vector<Face *> componentFaces;
-
-            for (int i = 0; i < faceCount; i++) {
-                Face *f = &mesh.faces[mesh.vertices[kv.first].adjacentFaces[i]];
-                if (visitedFaceMap.find(f->index) == visitedFaceMap.end()) {
-                    stack.push(f);
-                    visitedFaceMap[f->index] = true;
-                    break;
+                    // update face edge adjacency lists, mark new boundary edges
+                    e.removeFaceFromAdjacencyList(f.index);
+                    
+                    int v1 = 0;
+                    int v2 = 1;
+                    if (eIdx == 1) v2 = 2;
+                    else if (eIdx == 2) {
+                        v1 = 1;
+                        v2 = 2;
+                    }
+                
+                    if (collectEdge(f.incidentEdges[eIdx], f.vIndices[v1], f.vIndices[v2])) {
+                        boundaryEdges[f.incidentEdges[eIdx]] = true;
+                    }
+                    mesh.edges[f.incidentEdges[eIdx]].adjacentFaces.push_back(f.index);
                 }
             }
+        }
+    }
+}
+
+void ModelRepairer::cut() 
+{
+    for (auto kv : singularVertices) {
+        if (kv.second) {
+            const int& vIdx(kv.first);
+            std::vector<int> adjacentFaces = mesh.vertices[vIdx].adjacentFaces;
             
-            // isolate a component
-            while (!stack.empty()) {
-                Face *f = stack.top();
-                stack.pop();
-                componentFaces.push_back(f);
+            // assign components
+            int components = 0;
+            const size_t faceCount = adjacentFaces.size();
+            std::unordered_map<int, bool> visitedFaceMap;
+            
+            while (visitedFaceMap.size() != faceCount) {
+                // find a face that has not been visited
+                std::stack<Face *> stack;
+                std::vector<Face *> componentFaces;
                 
-                for (int i = 0; i < 3; i++) {
-                    Edge *e = &mesh.edges[f->incidentEdges[i]];
+                for (int i = 0; i < faceCount; i++) {
+                    Face *f = &mesh.faces[adjacentFaces[i]];
+                    if (visitedFaceMap.find(f->index) == visitedFaceMap.end()) {
+                        stack.push(f);
+                        visitedFaceMap[f->index] = true;
+                        break;
+                    }
+                }
+                
+                // isolate a component
+                while (!stack.empty()) {
+                    Face *f = stack.top();
+                    stack.pop();
+                    componentFaces.push_back(f);
                     
-                    if (singularEdges.find(e->index) == singularEdges.end() &&
-                       !e->isBoundary && e->containsVertex(mesh.vertices[kv.first].index)) {
+                    for (int i = 0; i < 3; i++) {
+                        Edge *e = &mesh.edges[f->incidentEdges[i]];
                         
-                        Face *af = &mesh.faces[e->adjacentFaces[0]];
-                        if (f == af) af = &mesh.faces[e->adjacentFaces[1]];
-                        
-                        // push faces not yet visited
-                        if (visitedFaceMap.find(af->index) == visitedFaceMap.end()) {
-                            stack.push(af);
-                            visitedFaceMap[af->index] = true;
+                        if (singularEdges.find(e->index) == singularEdges.end() &&
+                            boundaryEdges.find(e->index) == boundaryEdges.end() &&
+                            e->containsVertex(vIdx)) {
+                            
+                            Face *af = &mesh.faces[e->adjacentFaces[0]];
+                            if (f == af) af = &mesh.faces[e->adjacentFaces[1]];
+                            
+                            // push faces not yet visited
+                            if (visitedFaceMap.find(af->index) == visitedFaceMap.end()) {
+                                stack.push(af);
+                                visitedFaceMap[af->index] = true;
+                            }
                         }
                     }
                 }
-            }
-
-            components++;
-            if (components > 1) {
-                // multiply vertices
-                int vNew = (int)mesh.vertices.size();
-                mesh.vertices.push_back(Vertex(mesh.vertices[kv.first].position, vNew));
                 
-                for (size_t i = 0; i < componentFaces.size(); i++) {
-                    componentFaces[i]->updateVertexIndex(mesh.vertices[kv.first].index, vNew);
+                components++;
+                if (components > 1) {
+                    // multiply vertices
+                    int vNew = (int)mesh.vertices.size();
+                    mesh.vertices.push_back(Vertex(mesh.vertices[vIdx].position, vNew));
+                    
+                    for (size_t i = 0; i < componentFaces.size(); i++) {
+                        componentFaces[i]->updateVertexIndex(vIdx, vNew);
+                        
+                        // update vertex face adjacency relation
+                        mesh.vertices[vIdx].removeFaceFromAdjacencyList(componentFaces[i]->index);
+                        mesh.vertices[mesh.vertices.size()-1].adjacentFaces.push_back(componentFaces[i]->index);
+                    }
                 }
             }
         }
     }
     
-    // NOTE: mesh edges and adjaceny relations are invalid at this point
+    // NOTE: mesh edges and edge face adjaceny relations are invalid at this point
+    updateAdjacencyLists();
 }
 
 void ModelRepairer::orient()
@@ -306,7 +356,9 @@ void ModelRepairer::orient()
             for (int i = 0; i < 3; i++) {
                 Edge *e = &mesh.edges[f->incidentEdges[i]];
                 
-                if (singularEdges.find(e->index) == singularEdges.end() && !e->isBoundary) {
+                if (singularEdges.find(e->index) == singularEdges.end() &&
+                    boundaryEdges.find(e->index) == boundaryEdges.end()) {
+                    
                     Face *af = &mesh.faces[e->adjacentFaces[0]];
                     if (f == af) af = &mesh.faces[e->adjacentFaces[1]];
                     
@@ -327,7 +379,7 @@ void ModelRepairer::orient()
 
 void ModelRepairer::stitch() const
 {
-    // TODO
+    // TODO: snapping, update components & flip faces if necessary
 }
 
 void ModelRepairer::normalize() const

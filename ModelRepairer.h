@@ -13,11 +13,10 @@ public:
     
 private:
     // makes v, uv, n unique and reassigns face indices
-    void makeMeshElementsUnique() const;
+    void makeMeshElementsUnique();
     
     // collects mesh edges
-    int collectEdge(std::unordered_map<size_t, size_t>& edgeMap, const int& v1,
-                    const int& v2, const size_t& vertexCount) const;
+    bool collectEdge(int& e, const int& v1, const int& v2);
 
     // identifies singular edges
     void identifySingularEdges();
@@ -25,8 +24,11 @@ private:
     // identifies singular vertices
     void identifySingularVertices();
     
+    // updates adjacency lists after cutting
+    void updateAdjacencyLists();
+    
     // cutting operation
-    void cut() const;
+    void cut();
     
     // orient component faces consistently
     void orient();
@@ -39,8 +41,13 @@ private:
     
     // member variable
     Mesh& mesh;
-    std::unordered_map<int, bool> singularEdges;
+    size_t hashFactor;
+    std::unordered_map<size_t, size_t> edgeMap;
+    std::unordered_map<int, bool> boundaryEdges;
     std::unordered_map<int, bool> singularVertices;
+    std::unordered_map<int, bool> singularEdges;
+    std::unordered_map<int, bool> isolatedVertices;
+    std::unordered_map<int, bool> isolatedFaces;
     std::vector<std::vector<Face *>> components;
 };
 

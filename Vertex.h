@@ -8,6 +8,9 @@ public:
     // constructor
     Vertex(const Eigen::Vector3d& position0, const int& index0);
     
+    // removes face index from face adjacency list
+    void removeFaceFromAdjacencyList(const int& f);
+    
     // position
     Eigen::Vector3d position;
     
@@ -16,12 +19,6 @@ public:
     
     // index
     int index;
-    
-    // flag for boundary vertex
-    bool isBoundary;
-    
-    // flag for isolated vertex
-    bool isIsolated;
 };
 
 #endif
