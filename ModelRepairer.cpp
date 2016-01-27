@@ -33,8 +33,9 @@ void ModelRepairer::repair()
     identifySingularVertices();
     cut();
     orient();
+    // TODO: check correctness + boundary edge count
     stitch();
-    // TODO: remove isolated vertices & faces
+    // TODO: remove isolated vertices, edges & faces
     // TODO: correct closed object orientation
     // TODO: calculate normals
     normalize();
@@ -44,6 +45,9 @@ void ModelRepairer::repair()
               << "\nSINGULAR VERTICES: " << (int)singularVertices.size()
               << "\nSINGULAR EDGES: " << (int)singularEdges.size()
               << "\nBOUNDARY EDGES: " << (int)boundaryEdges.size()
+              << "\nISOLATED VERTICES: " << (int)isolatedVertices.size()
+              << "\nISOLATED EDGES: " << (int)isolatedEdges.size()
+              << "\nISOLATED FACES: " << (int)isolatedFaces.size()
               << "\nVERTICES: " << (int)mesh.vertices.size()
               << "\nEDGE: " << (int)mesh.edges.size()
               << "\nFACES: " << (int)mesh.faces.size()
@@ -212,28 +216,34 @@ void ModelRepairer::identifySingularVertices()
     }
 }
 
+bool ModelRepairer::shareSingularEdge(const Face& f1, const Face& f2)
+{
+    for (int i = 0; i < 3; i++) {
+        if (singularEdges.find(f1.incidentEdges[i]) == singularEdges.end()) continue;
+        
+        for (int j = 0; j < 3; j++) {
+            if (singularEdges.find(f2.incidentEdges[j]) == singularEdges.end()) continue;
+            else if (f1.incidentEdges[i] == f2.incidentEdges[j]) return true;
+        }
+    }
+    
+    return false;
+}
+
 void ModelRepairer::updateAdjacencyLists()
 {    
     for (auto kv : singularEdges) {
         if (kv.second) {
-            Edge& e(mesh.edges[kv.first]);
-            
-            // mark as boundary edge
-            boundaryEdges[e.index] = true;
-            
             // create a local copy of adjacent faces
-            std::vector<int> adjacentFaces = e.adjacentFaces;
+            std::vector<int> adjacentFaces = mesh.edges[kv.first].adjacentFaces;
             
             // update edge face adjacency relations
             for (size_t i = 0; i < adjacentFaces.size(); i++) {
                 Face& f(mesh.faces[adjacentFaces[i]]);
                 
                 // check if edge has been multiplied
-                int eIdx = f.edgeIndex(e.index);
+                int eIdx = f.edgeIndex(kv.first);
                 if (eIdx != -1) {
-
-                    // update face edge adjacency lists, mark new boundary edges
-                    e.removeFaceFromAdjacencyList(f.index);
                     
                     int v1 = 0;
                     int v2 = 1;
@@ -243,12 +253,23 @@ void ModelRepairer::updateAdjacencyLists()
                         v2 = 2;
                     }
                 
+                    // mark new edges as boundary edges
+                    const int index = f.incidentEdges[eIdx];
                     if (collectEdge(f.incidentEdges[eIdx], f.vIndices[v1], f.vIndices[v2])) {
                         boundaryEdges[f.incidentEdges[eIdx]] = true;
                     }
-                    mesh.edges[f.incidentEdges[eIdx]].adjacentFaces.push_back(f.index);
+                    
+                    // update face edge adjacency lists
+                    if (index != f.incidentEdges[eIdx]) {
+                        mesh.edges[kv.first].removeFaceFromAdjacencyList(f.index);
+                        mesh.edges[f.incidentEdges[eIdx]].adjacentFaces.push_back(f.index);
+                    }
                 }
             }
+            
+            // update edge type
+            if (mesh.edges[kv.first].adjacentFaces.size() == 0) isolatedEdges[kv.first] = true;
+            else if (mesh.edges[kv.first].adjacentFaces.size() == 1) boundaryEdges[kv.first] = true;
         }
     }
 }
@@ -304,12 +325,19 @@ void ModelRepairer::cut()
                     }
                 }
                 
+                // check if first & last component faces share a singular edge
+                if (componentFaces.size() > 1 &&
+                    shareSingularEdge(*componentFaces[0], *componentFaces[componentFaces.size()-1])) {
+                    visitedFaceMap.erase(componentFaces[componentFaces.size()-1]->index);
+                    componentFaces.pop_back();
+                }
+                
                 components++;
                 if (components > 1) {
                     // multiply vertices
                     int vNew = (int)mesh.vertices.size();
                     mesh.vertices.push_back(Vertex(mesh.vertices[vIdx].position, vNew));
-                    
+
                     for (size_t i = 0; i < componentFaces.size(); i++) {
                         componentFaces[i]->updateVertexIndex(vIdx, vNew);
                         
@@ -322,7 +350,7 @@ void ModelRepairer::cut()
         }
     }
     
-    // NOTE: mesh edges and edge face adjaceny relations are invalid at this point
+    // mesh edges and edge face adjaceny relations are invalid at this point
     updateAdjacencyLists();
 }
 
@@ -353,11 +381,11 @@ void ModelRepairer::orient()
             stack.pop();
             components[components.size()-1].push_back(f);
             
+            int boundaryEdgeCount = 0;
             for (int i = 0; i < 3; i++) {
                 Edge *e = &mesh.edges[f->incidentEdges[i]];
                 
-                if (singularEdges.find(e->index) == singularEdges.end() &&
-                    boundaryEdges.find(e->index) == boundaryEdges.end()) {
+                if (boundaryEdges.find(e->index) == boundaryEdges.end()) {
                     
                     Face *af = &mesh.faces[e->adjacentFaces[0]];
                     if (f == af) af = &mesh.faces[e->adjacentFaces[1]];
@@ -369,17 +397,22 @@ void ModelRepairer::orient()
                         stack.push(af);
                         visitedFaceMap[af->index] = true;
                     }
+                    
+                } else {
+                    boundaryEdgeCount++;
                 }
             }
+            
+            if (boundaryEdgeCount == 3) isolatedFaces[f->index] = true;
         }
     }
     
-    // NOTE: mesh normals are invalid at this point
+    // mesh normals are invalid at this point
 }
 
 void ModelRepairer::stitch() const
 {
-    // TODO: snapping, update components & flip faces if necessary
+    // TODO: snapping, join components & flip faces if necessary
 }
 
 void ModelRepairer::normalize() const
