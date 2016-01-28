@@ -34,7 +34,6 @@ void ModelRepairer::repair()
     cut();
     orient();
     stitch();
-    // TODO: remove isolated vertices & faces
     // TODO: correct closed object orientation
     // TODO: calculate normals
     normalize();
@@ -43,8 +42,6 @@ void ModelRepairer::repair()
               << (int)(mesh.vertices.size() - mesh.edges.size() + mesh.faces.size())
               << "\nSINGULAR VERTICES: " << (int)singularVertices.size()
               << "\nSINGULAR EDGES: " << (int)singularEdges.size()
-              << "\nISOLATED VERTICES: " << (int)isolatedVertices.size()
-              << "\nISOLATED FACES: " << (int)isolatedFaces.size()
               << "\nVERTICES: " << (int)mesh.vertices.size()
               << "\nEDGE: " << (int)mesh.edges.size()
               << "\nFACES: " << (int)mesh.faces.size()
@@ -165,10 +162,7 @@ void ModelRepairer::identifySingularEdges()
 void ModelRepairer::identifySingularVertices()
 {
     for (VertexIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
-        if (v->adjacentFaces.size() == 0) {
-            isolatedVertices[v->index] = true;
-            
-        } else if (singularVertices.find(v->index) == singularVertices.end()) {
+        if (singularVertices.find(v->index) == singularVertices.end()) {
             // traverse adjacent faces on vertex
             int valence = 0;
             Face *f = &mesh.faces[v->adjacentFaces[0]];
@@ -349,8 +343,6 @@ void ModelRepairer::orient()
                     boundaryEdges++;
                 }
             }
-            
-            if (boundaryEdges == 3) isolatedFaces[f->index] = true;
         }
     }
     
@@ -359,7 +351,11 @@ void ModelRepairer::orient()
 
 void ModelRepairer::stitch() const
 {
-    // TODO: snapping, join components & flip faces if necessary
+    for (EdgeIter e = mesh.edges.begin(); e != mesh.edges.end(); e++) {
+        if (e->adjacentFaces.size() == 1) {
+            // TODO: snap, join components & flip if necessary
+        }
+    }
 }
 
 void ModelRepairer::normalize() const

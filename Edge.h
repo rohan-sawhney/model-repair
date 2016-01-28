@@ -10,10 +10,7 @@ public:
     
     // checks if edge contains vertex
     bool containsVertex(const int& v) const;
-    
-    // removes face index from face adjacency list
-    void removeFaceFromAdjacencyList(const int& f);
-    
+        
     // vertex indices (v1 > v0)
     int v0, v1;
     

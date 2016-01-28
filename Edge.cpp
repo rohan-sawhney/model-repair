@@ -12,13 +12,3 @@ bool Edge::containsVertex(const int& v) const
 {
     return v == v0 || v == v1;
 }
-
-void Edge::removeFaceFromAdjacencyList(const int& f)
-{
-    for (size_t i = 0; i < adjacentFaces.size(); i++) {
-        if (adjacentFaces[i] == f) {
-            adjacentFaces.erase(adjacentFaces.begin() + i);
-            break;
-        }
-    }
-}
