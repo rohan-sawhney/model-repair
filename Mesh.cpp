@@ -2,7 +2,8 @@
 #include "MeshIO.h"
 #include "ModelRepairer.h"
 
-Mesh::Mesh()
+Mesh::Mesh():
+closed(false)
 {
     
 }

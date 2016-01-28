@@ -48,6 +48,7 @@ bool MeshIO::read(std::ifstream& in, Mesh& mesh)
     mesh.normals.clear();
     mesh.edges.clear();
     mesh.faces.clear();
+    mesh.closed = false;
     
     // parse obj format
     std::string line;
@@ -84,8 +85,17 @@ bool MeshIO::read(std::ifstream& in, Mesh& mesh)
             while (ss >> token && i < 3) {
                 Index index = parseFaceIndex(token);
                 mesh.faces[f].vIndices[i] = index.position;
+                
                 mesh.faces[f].uvIndices[i] = index.uv;
+                if (mesh.uvs.size() == mesh.vertices.size() && index.uv == -2) {
+                    mesh.faces[f].uvIndices[i] = index.position;
+                }
+                
                 mesh.faces[f].nIndices[i] = index.normal;
+                if (mesh.normals.size() == mesh.vertices.size() && index.normal == -2) {
+                    mesh.faces[f].nIndices[i] = index.position;
+                }
+                
                 i++;
             }
         }

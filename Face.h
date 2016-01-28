@@ -11,16 +11,16 @@ public:
     // constructor
     Face(const Eigen::Vector3i& vIndices0, const Eigen::Vector3i& uvIndices0,
          const Eigen::Vector3i& nIndices0, const Eigen::Vector3d& normal0,
-         const int& index0);
+         const Eigen::Vector3d& centroid0, const int& index0);
     
     // updates vertex index
     void updateVertexIndex(const int& vOld, const int& vNew);
     
-    // flip orientation
-    void flipOrientation(const Face& f);
+    // flips face
+    void flip(const int& v0, const int& v1);
     
-    // returns edge index
-    int edgeIndex(const int& e) const;
+    // flip face orientation if faces have inconsistent winding order
+    void flipOrientation(const Face& f);
     
     // checks if face contains vertex
     bool containsVertex(const int& v) const;
@@ -36,6 +36,9 @@ public:
     
     // normal
     Eigen::Vector3d normal;
+    
+    // centroid
+    Eigen::Vector3d centroid;
     
     // incident edges
     Eigen::Vector3i incidentEdges;

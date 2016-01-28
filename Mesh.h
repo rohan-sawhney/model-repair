@@ -26,6 +26,7 @@ public:
     std::vector<Eigen::Vector3d> normals;
     std::vector<Edge> edges;
     std::vector<Face> faces;
+    bool closed;
 };
 
 #endif

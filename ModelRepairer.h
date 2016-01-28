@@ -35,6 +35,12 @@ private:
     
     // stitching operation
     void stitch() const;
+        
+    // flips closed mesh outwards
+    void flipClosedMeshOutwards() const;
+    
+    // calculates mesh normals
+    void calculateNormals() const;
     
     // centers mesh about origin and rescales to unit radius
     void normalize() const;

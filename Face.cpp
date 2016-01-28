@@ -8,11 +8,12 @@ index(index0)
 
 Face::Face(const Eigen::Vector3i& vIndices0, const Eigen::Vector3i& uvIndices0,
            const Eigen::Vector3i& nIndices0, const Eigen::Vector3d& normal0,
-           const int& index0):
+           const Eigen::Vector3d& centroid0, const int& index0):
 vIndices(vIndices0),
 uvIndices(uvIndices0),
 nIndices(nIndices0),
 normal(normal0),
+centroid(centroid0),
 index(index0)
 {
     
@@ -28,6 +29,13 @@ void Face::updateVertexIndex(const int& vOld, const int& vNew)
     }
 }
 
+void Face::flip(const int& v0, const int& v1)
+{
+    std::swap(vIndices[v0], vIndices[v1]);
+    std::swap(uvIndices[v0], uvIndices[v1]);
+    normal *= -1;
+}
+
 void Face::flipOrientation(const Face& f)
 {
     for (int i = 0; i < 3; i++) {
@@ -40,21 +48,11 @@ void Face::flipOrientation(const Face& f)
             int d = (int)vIndices[nextJ];
             
             if (a == c && b == d) {
-                std::swap(vIndices[j], vIndices[nextJ]);
-                std::swap(uvIndices[j], uvIndices[nextJ]);
+                flip(j, nextJ);
                 break;
             }
         }
     }
-}
-
-int Face::edgeIndex(const int& e) const
-{
-    for (int i = 0; i < 3; i++) {
-        if (incidentEdges[i] == e) return i;
-    }
-    
-    return -1;
 }
 
 bool Face::containsVertex(const int& v) const

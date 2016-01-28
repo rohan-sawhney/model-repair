@@ -1,6 +1,7 @@
 #include "ModelRepairer.h"
 #include "Mesh.h"
 #include <stack>
+#define EPSILON 1e-6
 
 template <typename T>
 inline void hashCombine(std::size_t& seed, const T& v)
@@ -34,8 +35,8 @@ void ModelRepairer::repair()
     cut();
     orient();
     stitch();
-    // TODO: correct closed object orientation
-    // TODO: calculate normals
+    flipClosedMeshOutwards();
+    calculateNormals();
     normalize();
     
     std::cout << "EULER CHARACTERISTIC: "
@@ -65,7 +66,7 @@ bool ModelRepairer::collectEdge(int& e, const int& v1, const int& v2)
 }
 
 void ModelRepairer::makeMeshElementsUnique()
-{
+{    
     std::vector<Vertex> vertices = mesh.vertices; mesh.vertices.clear();
     std::vector<Eigen::Vector3d> uvs = mesh.uvs; mesh.uvs.clear();
     std::vector<Eigen::Vector3d> normals = mesh.normals; mesh.normals.clear();
@@ -120,11 +121,13 @@ void ModelRepairer::makeMeshElementsUnique()
         Eigen::Vector3d normal = (v2-v1).cross((v3-v1));
         
         if (normal.norm() != 0.0) {
-            size_t fHash = hash((v1 + v2 + v3) / 3.0); // hash of face centroid
+            Eigen::Vector3d centroid = (v1 + v2 + v3) / 3.0;
+            size_t fHash = hash(centroid); // hash of face centroid
             
             if (faceMap.find(fHash) == faceMap.end()) {
                 int fIdx = (int)mesh.faces.size();
-                mesh.faces.push_back(Face(f->vIndices, f->uvIndices, f->nIndices, normal, fIdx));
+                mesh.faces.push_back(Face(f->vIndices, f->uvIndices, f->nIndices,
+                                          normal.normalized(), centroid, fIdx));
                 Face *cf = &mesh.faces[fIdx];
                 
                 // build vertex face adjacency
@@ -322,7 +325,6 @@ void ModelRepairer::orient()
             stack.pop();
             components[components.size()-1].push_back(f);
             
-            int boundaryEdges = 0;
             for (int i = 0; i < 3; i++) {
                 Edge *e = &mesh.edges[f->incidentEdges[i]];
                 
@@ -338,9 +340,6 @@ void ModelRepairer::orient()
                         stack.push(af);
                         visitedFaceMap[af->index] = true;
                     }
-                    
-                } else {
-                    boundaryEdges++;
                 }
             }
         }
@@ -351,11 +350,86 @@ void ModelRepairer::orient()
 
 void ModelRepairer::stitch() const
 {
+    size_t boundaryEdges = 0;
     for (EdgeIter e = mesh.edges.begin(); e != mesh.edges.end(); e++) {
         if (e->adjacentFaces.size() == 1) {
-            // TODO: snap, join components & flip if necessary
+            boundaryEdges++;
         }
     }
+    
+    if (boundaryEdges == 0) mesh.closed = true;
+}
+
+bool intersectFaceRay(const Mesh& mesh, const Face& f,
+                      const Eigen::Vector3d& origin, const Eigen::Vector3d& direction)
+{
+    // Möller–Trumbore intersection algorithm
+    const Eigen::Vector3d& p1(mesh.vertices[f.vIndices[0]].position);
+    const Eigen::Vector3d& p2(mesh.vertices[f.vIndices[1]].position);
+    const Eigen::Vector3d& p3(mesh.vertices[f.vIndices[2]].position);
+    
+    Eigen::Vector3d e1 = p2 - p1;
+    Eigen::Vector3d e2 = p3 - p1;
+    Eigen::Vector3d n = direction.cross(e2);
+    
+    double det = e1.dot(n);
+    
+    // ray does not lie in the plane
+    if (fabs(det) < EPSILON) {
+        return false;
+    }
+    
+    double invDet = 1.0 / det;
+    Eigen::Vector3d t = origin - p1;
+    double u = t.dot(n) * invDet;
+    
+    // ray lies outside triangle
+    if (u < 0.0 || u > 1.0) {
+        return false;
+    }
+    
+    Eigen::Vector3d q = t.cross(e1);
+    double v = direction.dot(q) * invDet;
+    
+    // ray lies outside the triangle
+    if (v < 0.0 || v + u > 1.0) {
+        return false;
+    }
+    
+    // check for intersection
+    if (e2.dot(q) * invDet > 0) {
+        return true;
+    }
+    
+    // no hit
+    return false;
+}
+
+void ModelRepairer::flipClosedMeshOutwards() const
+{
+    if (mesh.closed) {
+        for (size_t i = 0; i < components.size(); i++) {
+            
+            Eigen::Vector3d n = components[i][0]->normal;
+            Eigen::Vector3d p = components[i][0]->centroid + EPSILON * n;
+            
+            // count ray face intersections
+            int intersections = 0;
+            for (size_t j = 0; j < components[i].size(); j++) {
+                if (intersectFaceRay(mesh, *components[i][j], p, -n)) intersections++;
+            }
+            
+            // check if p is inside mesh
+            if (intersections % 2 == 1) {
+                for (size_t j = 0; j < components[i].size(); j++) components[i][j]->flip(0, 1);
+            }
+        }
+    }
+}
+
+void ModelRepairer::calculateNormals() const
+{
+    // TODO
 }
 
 void ModelRepairer::normalize() const
