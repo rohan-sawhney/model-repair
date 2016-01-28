@@ -24,11 +24,8 @@ private:
     // identifies singular vertices
     void identifySingularVertices();
     
-    // checks if two faces share singular edge
-    bool shareSingularEdge(const Face& f1, const Face& f2);
-    
-    // updates adjacency lists after cutting
-    void updateAdjacencyLists();
+    // updates edges
+    void updateEdges();
     
     // cutting operation
     void cut();
@@ -48,9 +45,7 @@ private:
     std::unordered_map<size_t, size_t> edgeMap;
     std::unordered_map<int, bool> singularVertices;
     std::unordered_map<int, bool> singularEdges;
-    std::unordered_map<int, bool> boundaryEdges;
     std::unordered_map<int, bool> isolatedVertices;
-    std::unordered_map<int, bool> isolatedEdges;
     std::unordered_map<int, bool> isolatedFaces;
     std::vector<std::vector<Face *>> components;
 };
