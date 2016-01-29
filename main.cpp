@@ -44,9 +44,12 @@ void init()
 void draw()
 {
     glLineWidth(2.0);
-    glColor4f(0.0, 0.0, 0.6, 0.5);
     glBegin(GL_LINES);
     for (EdgeIter e = mesh.edges.begin(); e != mesh.edges.end(); e++) {
+        
+        if (e->adjacentFaces.size() == 1) glColor4f(0.0, 0.6, 0.0, 0.5);
+        else glColor4f(0.0, 0.0, 0.6, 0.5);
+        
         const Eigen::Vector3d &a(mesh.vertices[e->v0].position);
         const Eigen::Vector3d &b(mesh.vertices[e->v1].position);
         

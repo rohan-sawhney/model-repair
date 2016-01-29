@@ -353,6 +353,8 @@ void ModelRepairer::stitch() const
     size_t boundaryEdges = 0;
     for (EdgeIter e = mesh.edges.begin(); e != mesh.edges.end(); e++) {
         if (e->adjacentFaces.size() == 1) {
+            // TODO: pinch
+            
             boundaryEdges++;
         }
     }

@@ -277,6 +277,7 @@
 				32E55C521C4C46DE00214DE1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
