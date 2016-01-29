@@ -55,7 +55,11 @@ void Face::flipOrientation(const Face& f)
     }
 }
 
-bool Face::containsVertex(const int& v) const
+int Face::vertexIndex(const int& v) const
 {
-    return vIndices[0] == v || vIndices[1] == v || vIndices[2] == v;
+    if (vIndices[0] == v) return 0;
+    else if (vIndices[1] == v) return 1;
+    else if (vIndices[2] == v) return 2;
+    
+    return -1;
 }

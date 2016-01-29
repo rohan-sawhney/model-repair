@@ -69,12 +69,10 @@ void ModelRepairer::makeMeshElementsUnique()
 {    
     std::vector<Vertex> vertices = mesh.vertices; mesh.vertices.clear();
     std::vector<Eigen::Vector3d> uvs = mesh.uvs; mesh.uvs.clear();
-    std::vector<Eigen::Vector3d> normals = mesh.normals; mesh.normals.clear();
     std::vector<Face> faces = mesh.faces; mesh.faces.clear();
     
     std::unordered_map<size_t, size_t> vertexMap;
     std::unordered_map<size_t, size_t> uvMap;
-    std::unordered_map<size_t, size_t> normalMap;
     std::unordered_map<size_t, bool> faceMap;
     
     hashFactor = 2 * vertices.size();
@@ -101,16 +99,6 @@ void ModelRepairer::makeMeshElementsUnique()
                     uvMap[uvHash] = mesh.uvs.size();
                 }
                 f->uvIndices[i] = (int)uvMap[uvHash]-1;
-            }
-            
-            if (normals.size() > 0) {
-                // insert unique normal into map and return index
-                size_t nHash = hash(normals[f->nIndices[i]]);
-                if (normalMap.find(nHash) == normalMap.end()) {
-                    mesh.normals.push_back(normals[f->nIndices[i]]);
-                    normalMap[nHash] = mesh.normals.size();
-                }
-                f->nIndices[i] = (int)normalMap[nHash]-1;
             }
         }
         
@@ -344,8 +332,6 @@ void ModelRepairer::orient()
             }
         }
     }
-    
-    // mesh normals are invalid at this point
 }
 
 void ModelRepairer::stitch() const
@@ -429,9 +415,74 @@ void ModelRepairer::flipClosedMeshOutwards() const
     }
 }
 
+bool hardAngle(const int& f1, const int& f2, const Mesh& mesh)
+{
+    const Eigen::Vector3d& n1(mesh.faces[f1].normal);
+    const Eigen::Vector3d& n2(mesh.faces[f2].normal);
+    
+    return fabs(n1.dot(n2)) < EPSILON;
+}
+
+double pivotAngle(const int& vp, const int& fIdx, const Mesh& mesh)
+{
+    const Face& f(mesh.faces[fIdx]);
+    
+    int v0 = vp-1;
+    if (v0 < 0) v0 = 2;
+    
+    int v1 = vp+1;
+    if (v1 > 2) v1 = 0;
+    
+    Eigen::Vector3d e1 = mesh.vertices[f.vIndices[v0]].position - mesh.vertices[f.vIndices[vp]].position;
+    Eigen::Vector3d e2 = mesh.vertices[f.vIndices[v1]].position - mesh.vertices[f.vIndices[vp]].position;
+    
+    double angle = e1.dot(e2) / sqrt(e1.dot(e1) * e2.dot(e2));
+    if (angle < -1.0) angle = -1.0;
+    else if (angle >  1.0) angle = 1.0;
+    return acos(angle);
+}
+
 void ModelRepairer::calculateNormals() const
 {
-    // TODO
+    mesh.normals.clear();
+    std::unordered_map<size_t, size_t> normalMap;
+    
+    for (VertexCIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
+        
+        // bucket faces based on angles between them
+        std::unordered_map<int, std::vector<int>> faceMap;
+        for (size_t i = 0; i < v->adjacentFaces.size(); i++) {
+            int j = 0;
+            for (auto kv : faceMap) {
+                if (hardAngle(v->adjacentFaces[i], kv.second[0], mesh)) j++;
+            }
+            faceMap[j].push_back(v->adjacentFaces[i]);
+        }
+        
+        // calculate vertex normal with faces from each bucket
+        for (auto kv : faceMap) {
+            Eigen::Vector3d n = Eigen::Vector3d::Zero();
+            for (size_t i = 0; i < kv.second.size(); i++) {
+                int index = mesh.faces[kv.second[i]].vertexIndex(v->index);
+                if (index != -1) n += pivotAngle(index, kv.second[i], mesh) *
+                                      mesh.faces[kv.second[i]].normal;
+            }
+            n.normalize();
+            
+            // insert unique normal into map and return index
+            size_t nHash = hash(n);
+            if (normalMap.find(nHash) == normalMap.end()) {
+                mesh.normals.push_back(n);
+                normalMap[nHash] = mesh.normals.size();
+            }
+            
+            // set normal index for bucket faces
+            for (size_t i = 0; i < kv.second.size(); i++) {
+                int index = mesh.faces[kv.second[i]].vertexIndex(v->index);
+                if (index != -1) mesh.faces[kv.second[i]].nIndices[index] = (int)normalMap[nHash]-1;
+            }
+        }
+    }
 }
 
 void ModelRepairer::normalize() const

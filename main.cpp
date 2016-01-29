@@ -23,10 +23,12 @@ std::vector<std::string> paths = {"/Users/rohansawhney/Desktop/developer/C++/mod
                                   "/Users/rohansawhney/Desktop/developer/C++/model-repair/teapot.obj"};
 Mesh mesh;
 bool success = true;
+bool faceNormals = true;
 
 void printInstructions()
 {
     std::cerr << "space: toggle between meshes\n"
+              << "n: toggle face normals/ vertex normals\n"
               << "↑/↓: move in/out\n"
               << "w/s: move up/down\n"
               << "a/d: move left/right\n"
@@ -37,24 +39,49 @@ void printInstructions()
 
 void init()
 {
+    glShadeModel(GL_SMOOTH);
     glClearColor(0.0, 0.0, 0.0, 0.0);
+    glClearDepth(1.0f);
     glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glEnable(GL_COLOR_MATERIAL);
+    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+    
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    GLfloat light0[4] = {1.0, 1.0, 1.0, 0.0};
+    glLightfv(GL_LIGHT0, GL_POSITION, (GLfloat *)&light0);
+    
+    GLfloat ambient[4] = {0.3, 0.3, 0.3, 0.0};
+    glLightfv(GL_LIGHT0, GL_AMBIENT, (GLfloat *)&ambient);
+    
+    GLfloat diffuse[4] = {0.7, 0.7, 0.7, 0.0};
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, (GLfloat *)&diffuse);
+    
+    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+    glEnable(GL_CULL_FACE);
 }
 
 void draw()
 {
     glLineWidth(2.0);
-    glBegin(GL_LINES);
-    for (EdgeIter e = mesh.edges.begin(); e != mesh.edges.end(); e++) {
+    glColor4f(0.0, 0.0, 0.6, 0.5);
+    glBegin(GL_TRIANGLES);
+    for (FaceIter f = mesh.faces.begin(); f != mesh.faces.end(); f++) {
         
-        if (e->adjacentFaces.size() == 1) glColor4f(0.0, 0.6, 0.0, 0.5);
-        else glColor4f(0.0, 0.0, 0.6, 0.5);
+        const Eigen::Vector3d& a(mesh.vertices[f->vIndices[0]].position);
+        const Eigen::Vector3d& b(mesh.vertices[f->vIndices[1]].position);
+        const Eigen::Vector3d& c(mesh.vertices[f->vIndices[2]].position);
+        const Eigen::Vector3d& n1((faceNormals ? f->normal : mesh.normals[f->nIndices[0]]));
+        const Eigen::Vector3d& n2((faceNormals ? f->normal : mesh.normals[f->nIndices[1]]));
+        const Eigen::Vector3d& n3((faceNormals ? f->normal : mesh.normals[f->nIndices[2]]));
         
-        const Eigen::Vector3d &a(mesh.vertices[e->v0].position);
-        const Eigen::Vector3d &b(mesh.vertices[e->v1].position);
-        
+        glNormal3d(n1.x(), n1.y(), n1.z());
         glVertex3d(a.x(), a.y(), a.z());
+        glNormal3d(n2.x(), n2.y(), n2.z());
         glVertex3d(b.x(), b.y(), b.z());
+        glNormal3d(n3.x(), n3.y(), n3.z());
+        glVertex3d(c.x(), c.y(), c.z());
     }
     glEnd();
 }
@@ -105,6 +132,9 @@ void keyboard(unsigned char key, int x0, int y0)
             break;
         case 's':
             y -= 0.03;
+            break;
+        case 'n':
+            faceNormals = !faceNormals;
             break;
         case 'l':
             std::string wPath = paths[i];

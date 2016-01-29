@@ -22,8 +22,8 @@ public:
     // flip face orientation if faces have inconsistent winding order
     void flipOrientation(const Face& f);
     
-    // checks if face contains vertex
-    bool containsVertex(const int& v) const;
+    // returns vertex index
+    int vertexIndex(const int& v) const;
     
     // vertex indices
     Eigen::Vector3i vIndices;
