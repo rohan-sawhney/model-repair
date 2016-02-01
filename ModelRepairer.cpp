@@ -127,10 +127,10 @@ void ModelRepairer::makeMeshElementsUnique()
                 collectEdge(cf->incidentEdges[0], cf->vIndices[0], cf->vIndices[1]);
                 mesh.edges[cf->incidentEdges[0]].adjacentFaces.push_back(fIdx);
                 
-                collectEdge(cf->incidentEdges[1], cf->vIndices[0], cf->vIndices[2]);
+                collectEdge(cf->incidentEdges[1], cf->vIndices[1], cf->vIndices[2]);
                 mesh.edges[cf->incidentEdges[1]].adjacentFaces.push_back(fIdx);
                 
-                collectEdge(cf->incidentEdges[2], cf->vIndices[1], cf->vIndices[2]);
+                collectEdge(cf->incidentEdges[2], cf->vIndices[2], cf->vIndices[0]);
                 mesh.edges[cf->incidentEdges[2]].adjacentFaces.push_back(fIdx);
                 
                 faceMap[fHash] = true;
@@ -207,10 +207,10 @@ void ModelRepairer::updateEdges()
         collectEdge(f->incidentEdges[0], f->vIndices[0], f->vIndices[1]);
         mesh.edges[f->incidentEdges[0]].adjacentFaces.push_back(f->index);
         
-        collectEdge(f->incidentEdges[1], f->vIndices[0], f->vIndices[2]);
+        collectEdge(f->incidentEdges[1], f->vIndices[1], f->vIndices[2]);
         mesh.edges[f->incidentEdges[1]].adjacentFaces.push_back(f->index);
         
-        collectEdge(f->incidentEdges[2], f->vIndices[1], f->vIndices[2]);
+        collectEdge(f->incidentEdges[2], f->vIndices[2], f->vIndices[0]);
         mesh.edges[f->incidentEdges[2]].adjacentFaces.push_back(f->index);
     }
 }
