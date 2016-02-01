@@ -43,12 +43,7 @@ Index parseFaceIndex(const std::string& token)
 
 bool MeshIO::read(std::ifstream& in, Mesh& mesh)
 {
-    mesh.vertices.clear();
-    mesh.uvs.clear();
-    mesh.normals.clear();
-    mesh.edges.clear();
-    mesh.faces.clear();
-    mesh.closed = false;
+    mesh.reset();
     
     // parse obj format
     std::string line;

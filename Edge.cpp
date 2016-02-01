@@ -12,3 +12,8 @@ bool Edge::containsVertex(const int& v) const
 {
     return v == v0 || v == v1;
 }
+
+bool Edge::isBoundary() const
+{
+    return adjacentFaces.size() == 1;
+}

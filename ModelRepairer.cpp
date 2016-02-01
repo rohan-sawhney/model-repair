@@ -34,19 +34,9 @@ void ModelRepairer::repair()
     identifySingularVertices();
     cut();
     orient();
-    stitch();
     flipClosedMeshOutwards();
-    calculateNormals();
+    recalculateNormals();
     normalize();
-    
-    std::cout << "EULER CHARACTERISTIC: "
-              << (int)(mesh.vertices.size() - mesh.edges.size() + mesh.faces.size())
-              << "\nSINGULAR VERTICES: " << (int)singularVertices.size()
-              << "\nSINGULAR EDGES: " << (int)singularEdges.size()
-              << "\nVERTICES: " << (int)mesh.vertices.size()
-              << "\nEDGE: " << (int)mesh.edges.size()
-              << "\nFACES: " << (int)mesh.faces.size()
-              << "\n" << std::endl;
 }
 
 bool ModelRepairer::collectEdge(int& e, const int& v1, const int& v2)
@@ -173,7 +163,7 @@ void ModelRepairer::identifySingularVertices()
                 for (int i = 0; i < 3; i++) {
                     Edge *e = &mesh.edges[f->incidentEdges[i]];
                     
-                    if (e->adjacentFaces.size() != 1 && e->containsVertex(v->index)) {
+                    if (!e->isBoundary() && e->containsVertex(v->index)) {
                         
                         Face *af = &mesh.faces[e->adjacentFaces[0]];
                         if (f == af) af = &mesh.faces[e->adjacentFaces[1]];
@@ -251,7 +241,7 @@ void ModelRepairer::cut()
                         Edge *e = &mesh.edges[f->incidentEdges[i]];
                         
                         if (singularEdges.find(e->index) == singularEdges.end() &&
-                            e->adjacentFaces.size() != 1 && e->containsVertex(vIdx)) {
+                            !e->isBoundary() && e->containsVertex(vIdx)) {
                             
                             Face *af = &mesh.faces[e->adjacentFaces[0]];
                             if (f == af) af = &mesh.faces[e->adjacentFaces[1]];
@@ -316,7 +306,7 @@ void ModelRepairer::orient()
             for (int i = 0; i < 3; i++) {
                 Edge *e = &mesh.edges[f->incidentEdges[i]];
                 
-                if (e->adjacentFaces.size() != 1) {
+                if (!e->isBoundary()) {
                     
                     Face *af = &mesh.faces[e->adjacentFaces[0]];
                     if (f == af) af = &mesh.faces[e->adjacentFaces[1]];
@@ -328,24 +318,13 @@ void ModelRepairer::orient()
                         stack.push(af);
                         visitedFaceMap[af->index] = true;
                     }
+                    
+                } else {
+                    mesh.closed = false;
                 }
             }
         }
     }
-}
-
-void ModelRepairer::stitch() const
-{
-    size_t boundaryEdges = 0;
-    for (EdgeIter e = mesh.edges.begin(); e != mesh.edges.end(); e++) {
-        if (e->adjacentFaces.size() == 1) {
-            // TODO: pinch
-            
-            boundaryEdges++;
-        }
-    }
-    
-    if (boundaryEdges == 0) mesh.closed = true;
 }
 
 bool intersectFaceRay(const Mesh& mesh, const Face& f,
@@ -442,7 +421,7 @@ double pivotAngle(const int& vp, const int& fIdx, const Mesh& mesh)
     return acos(angle);
 }
 
-void ModelRepairer::calculateNormals() const
+void ModelRepairer::recalculateNormals() const
 {
     mesh.normals.clear();
     std::unordered_map<size_t, size_t> normalMap;

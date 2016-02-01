@@ -10,6 +10,9 @@ public:
     
     // checks if edge contains vertex
     bool containsVertex(const int& v) const;
+    
+    // checks if edge is a boundary edge
+    bool isBoundary() const;
         
     // vertex indices (v1 > v0)
     int v0, v1;

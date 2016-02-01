@@ -32,15 +32,12 @@ private:
     
     // orient component faces consistently
     void orient();
-    
-    // stitching operation
-    void stitch() const;
         
     // flips closed mesh outwards
     void flipClosedMeshOutwards() const;
     
     // calculates mesh normals
-    void calculateNormals() const;
+    void recalculateNormals() const;
     
     // centers mesh about origin and rescales to unit radius
     void normalize() const;

@@ -3,7 +3,7 @@
 #include "ModelRepairer.h"
 
 Mesh::Mesh():
-closed(false)
+closed(true)
 {
     
 }
@@ -44,5 +44,15 @@ bool Mesh::write(const std::string& fileName) const
     if ((writeSuccessful = MeshIO::write(out, *this))) {};
     
     return writeSuccessful;
+}
+
+void Mesh::reset()
+{
+    vertices.clear();
+    uvs.clear();
+    normals.clear();
+    edges.clear();
+    faces.clear();
+    closed = true;
 }
 

@@ -20,6 +20,9 @@ public:
     // write mesh to file
     bool write(const std::string& fileName) const;
     
+    // resets mesh
+    void reset();
+    
     // member variables
     std::vector<Vertex> vertices;
     std::vector<Eigen::Vector3d> uvs;
