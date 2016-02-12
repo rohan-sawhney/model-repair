@@ -48,6 +48,7 @@ private:
     std::unordered_map<size_t, size_t> edgeMap;
     std::unordered_map<int, bool> singularVertices;
     std::unordered_map<int, bool> singularEdges;
+    std::unordered_map<int, bool> isolatedVertices;
     std::vector<std::vector<Face *>> components;
 };
 

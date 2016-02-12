@@ -143,7 +143,10 @@ void ModelRepairer::identifySingularEdges()
 void ModelRepairer::identifySingularVertices()
 {
     for (VertexIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
-        if (singularVertices.find(v->index) == singularVertices.end()) {
+        if (v->adjacentFaces.size() == 0) {
+            isolatedVertices[v->index] = true;
+            
+        } else if (singularVertices.find(v->index) == singularVertices.end()) {
             // traverse adjacent faces on vertex
             int valence = 0;
             Face *f = &mesh.faces[v->adjacentFaces[0]];
@@ -427,38 +430,39 @@ void ModelRepairer::recalculateNormals() const
     std::unordered_map<size_t, size_t> normalMap;
     
     for (VertexCIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
-        
-        // bucket faces based on angles between them
-        std::unordered_map<int, std::vector<int>> faceMap;
-        for (size_t i = 0; i < v->adjacentFaces.size(); i++) {
-            int j = 0;
+        if (isolatedVertices.find(v->index) == isolatedVertices.end()) {
+            // bucket faces based on angles between them
+            std::unordered_map<int, std::vector<int>> faceMap;
+            for (size_t i = 0; i < v->adjacentFaces.size(); i++) {
+                int j = 0;
+                for (auto kv : faceMap) {
+                    if (hardAngle(v->adjacentFaces[i], kv.second[0], mesh)) j++;
+                }
+                faceMap[j].push_back(v->adjacentFaces[i]);
+            }
+            
+            // calculate vertex normal with faces from each bucket
             for (auto kv : faceMap) {
-                if (hardAngle(v->adjacentFaces[i], kv.second[0], mesh)) j++;
-            }
-            faceMap[j].push_back(v->adjacentFaces[i]);
-        }
-        
-        // calculate vertex normal with faces from each bucket
-        for (auto kv : faceMap) {
-            Eigen::Vector3d n = Eigen::Vector3d::Zero();
-            for (size_t i = 0; i < kv.second.size(); i++) {
-                int index = mesh.faces[kv.second[i]].vertexIndex(v->index);
-                if (index != -1) n += pivotAngle(index, kv.second[i], mesh) *
-                                      mesh.faces[kv.second[i]].normal;
-            }
-            n.normalize();
-            
-            // insert unique normal into map and return index
-            size_t nHash = hash(n);
-            if (normalMap.find(nHash) == normalMap.end()) {
-                mesh.normals.push_back(n);
-                normalMap[nHash] = mesh.normals.size();
-            }
-            
-            // set normal index for bucket faces
-            for (size_t i = 0; i < kv.second.size(); i++) {
-                int index = mesh.faces[kv.second[i]].vertexIndex(v->index);
-                if (index != -1) mesh.faces[kv.second[i]].nIndices[index] = (int)normalMap[nHash]-1;
+                Eigen::Vector3d n = Eigen::Vector3d::Zero();
+                for (size_t i = 0; i < kv.second.size(); i++) {
+                    int index = mesh.faces[kv.second[i]].vertexIndex(v->index);
+                    if (index != -1) n += pivotAngle(index, kv.second[i], mesh) *
+                        mesh.faces[kv.second[i]].normal;
+                }
+                n.normalize();
+                
+                // insert unique normal into map and return index
+                size_t nHash = hash(n);
+                if (normalMap.find(nHash) == normalMap.end()) {
+                    mesh.normals.push_back(n);
+                    normalMap[nHash] = mesh.normals.size();
+                }
+                
+                // set normal index for bucket faces
+                for (size_t i = 0; i < kv.second.size(); i++) {
+                    int index = mesh.faces[kv.second[i]].vertexIndex(v->index);
+                    if (index != -1) mesh.faces[kv.second[i]].nIndices[index] = (int)normalMap[nHash]-1;
+                }
             }
         }
     }
