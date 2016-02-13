@@ -29,6 +29,7 @@ hashFactor(0)
 
 void ModelRepairer::repair()
 {
+    normalize();
     makeMeshElementsUnique();
     identifySingularEdges();
     identifySingularVertices();
@@ -36,7 +37,28 @@ void ModelRepairer::repair()
     orient();
     flipClosedMeshOutwards();
     recalculateNormals();
-    normalize();
+}
+
+void ModelRepairer::normalize() const
+{
+    // compute center of mass
+    Eigen::Vector3d cm = Eigen::Vector3d::Zero();
+    for (VertexCIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
+        cm += v->position;
+    }
+    cm /= (double)mesh.vertices.size();
+    
+    // translate to origin and determine radius
+    double rMax = 0;
+    for (VertexIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
+        v->position -= cm;
+        rMax = std::max(rMax, v->position.norm());
+    }
+    
+    // rescale to unit sphere
+    for (VertexIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
+        v->position /= rMax;
+    }
 }
 
 bool ModelRepairer::collectEdge(int& e, const int& v1, const int& v2)
@@ -402,7 +424,7 @@ bool hardAngle(const int& f1, const int& f2, const Mesh& mesh)
     const Eigen::Vector3d& n1(mesh.faces[f1].normal);
     const Eigen::Vector3d& n2(mesh.faces[f2].normal);
     
-    return fabs(n1.dot(n2)) < EPSILON;
+    return n1.dot(n2) < EPSILON;
 }
 
 double pivotAngle(const int& vp, const int& fIdx, const Mesh& mesh)
@@ -435,9 +457,7 @@ void ModelRepairer::recalculateNormals() const
             std::unordered_map<int, std::vector<int>> faceMap;
             for (size_t i = 0; i < v->adjacentFaces.size(); i++) {
                 int j = 0;
-                for (auto kv : faceMap) {
-                    if (hardAngle(v->adjacentFaces[i], kv.second[0], mesh)) j++;
-                }
+                while (faceMap.size() != j && hardAngle(v->adjacentFaces[i], faceMap[j][0], mesh)) j++;
                 faceMap[j].push_back(v->adjacentFaces[i]);
             }
             
@@ -465,27 +485,5 @@ void ModelRepairer::recalculateNormals() const
                 }
             }
         }
-    }
-}
-
-void ModelRepairer::normalize() const
-{
-    // compute center of mass
-    Eigen::Vector3d cm = Eigen::Vector3d::Zero();
-    for (VertexCIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
-        cm += v->position;
-    }
-    cm /= (double)mesh.vertices.size();
-    
-    // translate to origin and determine radius
-    double rMax = 0;
-    for (VertexIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
-        v->position -= cm;
-        rMax = std::max(rMax, v->position.norm());
-    }
-    
-    // rescale to unit sphere
-    for (VertexIter v = mesh.vertices.begin(); v != mesh.vertices.end(); v++) {
-        v->position /= rMax;
     }
 }

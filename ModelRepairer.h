@@ -12,6 +12,9 @@ public:
     void repair();
     
 private:
+    // centers mesh about origin and rescales to unit radius
+    void normalize() const;
+    
     // makes v, uv, n unique and reassigns face indices
     void makeMeshElementsUnique();
     
@@ -38,9 +41,6 @@ private:
     
     // calculates mesh normals
     void recalculateNormals() const;
-    
-    // centers mesh about origin and rescales to unit radius
-    void normalize() const;
     
     // member variable
     Mesh& mesh;
