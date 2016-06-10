@@ -238,6 +238,7 @@ void ModelRepairer::cut()
             std::vector<int> adjacentFaces = mesh.vertices[vIdx].adjacentFaces;
             
             // assign components
+            int start = 0;
             int components = 0;
             const size_t faceCount = adjacentFaces.size();
             std::unordered_map<int, bool> visitedFaceMap;
@@ -247,11 +248,12 @@ void ModelRepairer::cut()
                 std::stack<Face *> stack;
                 std::vector<Face *> componentFaces;
                 
-                for (int i = 0; i < faceCount; i++) {
+                for (int i = start; i < faceCount; i++) {
                     Face *f = &mesh.faces[adjacentFaces[i]];
                     if (visitedFaceMap.find(f->index) == visitedFaceMap.end()) {
                         stack.push(f);
                         visitedFaceMap[f->index] = true;
+                        start = i + 1;
                         break;
                     }
                 }
@@ -304,6 +306,7 @@ void ModelRepairer::cut()
 void ModelRepairer::orient()
 {
     // build spanning tree
+    int start = 0;
     const size_t faceCount = mesh.faces.size();
     std::unordered_map<int, bool> visitedFaceMap;
     
@@ -311,13 +314,14 @@ void ModelRepairer::orient()
         
         // find a face that has not been visited
         std::stack<Face *> stack;
-        for (int i = 0; i < faceCount; i++) {
+        for (int i = start; i < faceCount; i++) {
             
             Face *f = &mesh.faces[i];
             if (visitedFaceMap.find(f->index) == visitedFaceMap.end()) {
                 stack.push(f);
                 visitedFaceMap[f->index] = true;
                 components.push_back(std::vector<Face *>());
+                start = i + 1;
                 break;
             }
         }
